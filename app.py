@@ -2,11 +2,14 @@ import streamlit as st
 import pandas as pd
 import io
 
+st.title("📦 Excel Manifest Transformer")
+
+# Originele kolommen zoals je eerder gebruikte
 column_mapping = {
     'OrderNumber': 'MawbNr',
     'ParcelBarcode': 'ParcelID',
     'BoxBagbarcode': 'PackageBarcode',
-    'IOSS': 'SellerIOSSNr',
+    'IOSS': 'SellerIOSSNr',  # mag afwijken in Excel
     'CSOR_COUNTRY': 'SellerCountryCode',
     'Namereceiver': 'BuyerName',
     'Addressreceiver': 'BuyerStreet',
@@ -22,29 +25,25 @@ column_mapping = {
     'Shippingcosts': 'ShippingMethod'
 }
 
-st.title("📦 Excel Manifest Transformer")
-
 uploaded_file = st.file_uploader("Upload your Excel file", type=["xlsx"])
 
 if uploaded_file:
-df = pd.read_excel(uploaded_file)
+    df = pd.read_excel(uploaded_file)
 
-# Alleen kolommen gebruiken die WEL bestaan in het bestand
-available_mapping = {k: v for k, v in column_mapping.items() if k in df.columns}
+    # Automatisch zoeken naar een kolom die 'IOSS' bevat
+    ioss_cols = [col for col in df.columns if 'ioss' in col.lower()]
+    if ioss_cols:
+        df['IOSS'] = df[ioss_cols[0]]
+    elif 'IOSS' not in df.columns:
+        df['IOSS'] = ''  # fallback lege kolom als niets gevonden is
 
-if not available_mapping:
-    st.error("❌ No matching columns found in the uploaded file.")
-else:
-    transformed_df = df[list(available_mapping.keys())].rename(columns=available_mapping)
-    st.success("✅ Transformation complete!")
-    st.dataframe(transformed_df)
+    # Alleen kolommen gebruiken die WEL bestaan
+    available_mapping = {k: v for k, v in column_mapping.items() if k in df.columns}
 
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        transformed_df.to_excel(writer, index=False)
-    st.download_button("📥 Download Transformed File", output.getvalue(), file_name="Transformed_Manifest.xlsx")
+    if not available_mapping:
+        st.error("❌ No matching columns found in the uploaded file.")
     else:
-        transformed_df = df[list(column_mapping.keys())].rename(columns=column_mapping)
+        transformed_df = df[list(available_mapping.keys())].rename(columns=available_mapping)
         st.success("✅ Transformation complete!")
         st.dataframe(transformed_df)
 
